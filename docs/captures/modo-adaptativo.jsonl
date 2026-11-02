@@ -1,0 +1,4 @@
+{"ts": 1793656778.9543827, "dir": "mark", "label": "inicio:modo-adaptativo"}
+{"ts": 1793656778.954408, "dir": "tx", "hex": "0400040009000d04000000"}
+{"ts": 1793656779.820857, "dir": "rx", "hex": "0400040009000d04000000"}
+{"ts": 1793656780.954442, "dir": "mark", "label": "fin:modo-adaptativo"}

@@ -6,7 +6,7 @@ su dirección. Usa Gio (PyGObject del sistema).
 
 import re
 
-from gi.repository import Gio, GLib
+from gi.repository import Gio
 
 from . import aap
 

@@ -15,6 +15,7 @@ class CaptureWriter:
         self._file = open(path, "a", encoding="utf-8")
         self._clock = clock
         self._lock = threading.Lock()
+        self.rx_packets = []
 
     def _write(self, entry):
         with self._lock:
@@ -22,7 +23,10 @@ class CaptureWriter:
             self._file.flush()
 
     def rx(self, data):
-        self._write({"ts": self._clock(), "dir": "rx", "hex": bytes(data).hex()})
+        raw = bytes(data)
+        with self._lock:
+            self.rx_packets.append(raw)
+        self._write({"ts": self._clock(), "dir": "rx", "hex": raw.hex()})
 
     def tx(self, data):
         self._write({"ts": self._clock(), "dir": "tx", "hex": bytes(data).hex()})

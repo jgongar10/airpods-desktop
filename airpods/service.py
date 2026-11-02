@@ -5,9 +5,11 @@ Uso: python -m airpods.service [--capture ARCHIVO]
 
 import argparse
 import logging
+import os
 import signal
 import sys
 import threading
+import time
 
 from gi.repository import GLib
 
@@ -72,19 +74,20 @@ def main(argv=None):
     parser.add_argument("--guided", metavar="DIRECTORIO",
                         help="captura guiada: una situación tras otra, "
                              "guarda un archivo por situación en DIRECTORIO")
+    parser.add_argument("--only", metavar="A,B",
+                        help="con --guided, solo estas situaciones (separadas por comas)")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if args.guided:
-        import os
         os.makedirs(args.guided, exist_ok=True)
-        args.capture = os.path.join(args.guided, "sesion.jsonl")
+        args.capture = os.path.join(args.guided, f"sesion-{int(time.time())}.jsonl")
     capture = CaptureWriter(args.capture) if args.capture else None
     service = Service(capture)
     service.start()
     loop = GLib.MainLoop()
     if args.guided:
         def guide():
-            guided.run(capture)
+            guided.run(capture, only=args.only.split(',') if args.only else None)
             capture.close()
             for path in guided.split(args.capture, args.guided):
                 print("Guardado", path)
