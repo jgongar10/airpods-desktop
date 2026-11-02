@@ -1,7 +1,5 @@
-"""Servicio en segundo plano (primer contacto): detecta, conecta y captura.
-
-Uso: python -m airpods.service [--capture ARCHIVO]
-"""
+"""Servicio en segundo plano: detecta AirPods, abre el enlace AAP, mantiene el
+estado en el núcleo y expone el control local por socket Unix."""
 
 import argparse
 import logging
@@ -13,51 +11,61 @@ import time
 
 from gi.repository import GLib
 
-from .bluez import AirPodsWatcher
 from . import guided
+from .bluez import AirPodsWatcher
 from .capture import CaptureWriter
+from .core import Core
 from .link import Link
+from .server import ControlServer
 
 log = logging.getLogger("airpods")
 
 
 class Service:
-    def __init__(self, capture=None):
+    def __init__(self, capture=None, socket_path=None):
         self._capture = capture
-        self._link = None
+        self.core = Core(link_factory=self._make_link)
+        self.server = ControlServer(self.core, socket_path=socket_path)
         self._watcher = AirPodsWatcher(self._connected, self._disconnected)
 
     def start(self):
+        self.server.start()
         self._watcher.start()
+
+    def close(self):
+        self.server.close()
 
     def _connected(self, address):
         log.info("AirPods conectados: %s", address)
         # La conexión L2CAP bloquea: fuera del hilo principal de GLib.
-        threading.Thread(target=self._open_link, args=(address,), daemon=True).start()
+        threading.Thread(
+            target=self.core.on_connected, args=(address,), daemon=True
+        ).start()
 
     def _disconnected(self, address):
         log.info("AirPods desconectados: %s", address)
-        if self._link:
-            self._link.close()
-            self._link = None
+        self.core.on_disconnected(address)
 
-    def _open_link(self, address):
-        rx = self._capture.rx if self._capture else (lambda d: None)
-        tx = self._capture.tx if self._capture else None
-        link = Link(address, on_rx=lambda d: self._on_rx(d, rx),
-                    on_closed=lambda: log.warning("Canal L2CAP cerrado"), on_tx=tx)
-        try:
-            link.open()
-        except OSError as exc:
-            log.error("No se pudo abrir L2CAP 0x1001: %s", exc)
-            return
-        self._link = link
-        log.info("Canal L2CAP abierto y saludo enviado")
+    def _make_link(self, address, on_rx, on_closed):
+        cap_rx = self._capture.rx if self._capture else None
+        cap_tx = self._capture.tx if self._capture else None
 
-    @staticmethod
-    def _on_rx(data, rx):
-        log.debug("rx %s", data.hex())
-        rx(data)
+        def handle_rx(data):
+            log.debug("rx %s", data.hex())
+            if cap_rx:
+                cap_rx(data)
+            on_rx(data)
+
+        def handle_closed():
+            log.warning("Canal L2CAP cerrado")
+            on_closed()
+
+        return Link(
+            address,
+            on_rx=handle_rx,
+            on_closed=handle_closed,
+            on_tx=cap_tx,
+        )
 
 
 def _mark_from_stdin(capture):
@@ -99,9 +107,12 @@ def main(argv=None):
                           lambda *_: _mark_from_stdin(capture))
     for sig in (signal.SIGINT, signal.SIGTERM):
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, sig, loop.quit)
-    loop.run()
-    if capture and not args.guided:
-        capture.close()
+    try:
+        loop.run()
+    finally:
+        service.close()
+        if capture and not args.guided:
+            capture.close()
     return 0
 
 
