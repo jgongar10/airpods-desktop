@@ -606,24 +606,12 @@ class DesktopAppClientTest(unittest.TestCase):
                     cond.wait_for(lambda: states[-1]["ear_detection"] is False, timeout=2.0)
                 )
 
-    def test_render_airpods_3d_svg_handles_disconnected_closed_and_open_states(self):
-        from airpods.gui import render_airpods_3d_svg
+    def test_media_assets_exist_for_video_and_disconnected_view(self):
+        from airpods.gui import OPENING_VIDEO_PATH, DISCONNECTED_IMAGE_PATH, CONNECTED_IMAGE_PATH
 
-        gray_svg = render_airpods_3d_svg(connected=False, open_progress=0.0, spin_angle=0.0)
-        far_closed_svg = render_airpods_3d_svg(
-            connected=True, approach_progress=0.0, open_progress=0.0, spin_angle=0.0
-        )
-        near_closed_svg = render_airpods_3d_svg(
-            connected=True, approach_progress=1.0, open_progress=0.0, spin_angle=0.0
-        )
-        opened_svg = render_airpods_3d_svg(
-            connected=True, approach_progress=1.0, open_progress=1.0, spin_angle=0.4
-        )
-
-        self.assertIn(b"<svg", gray_svg)
-        self.assertNotEqual(gray_svg, far_closed_svg)
-        self.assertNotEqual(far_closed_svg, near_closed_svg)
-        self.assertNotEqual(near_closed_svg, opened_svg)
+        self.assertTrue(os.path.isfile(OPENING_VIDEO_PATH), OPENING_VIDEO_PATH)
+        self.assertTrue(os.path.isfile(DISCONNECTED_IMAGE_PATH), DISCONNECTED_IMAGE_PATH)
+        self.assertTrue(os.path.isfile(CONNECTED_IMAGE_PATH), CONNECTED_IMAGE_PATH)
 
 
 class CommunicationRetryAndReconnectionTest(unittest.TestCase):
