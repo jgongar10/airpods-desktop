@@ -610,12 +610,20 @@ class DesktopAppClientTest(unittest.TestCase):
         from airpods.gui import render_airpods_3d_svg
 
         gray_svg = render_airpods_3d_svg(connected=False, open_progress=0.0, spin_angle=0.0)
-        closed_svg = render_airpods_3d_svg(connected=True, open_progress=0.0, spin_angle=0.0)
-        opened_svg = render_airpods_3d_svg(connected=True, open_progress=1.0, spin_angle=0.4)
+        far_closed_svg = render_airpods_3d_svg(
+            connected=True, approach_progress=0.0, open_progress=0.0, spin_angle=0.0
+        )
+        near_closed_svg = render_airpods_3d_svg(
+            connected=True, approach_progress=1.0, open_progress=0.0, spin_angle=0.0
+        )
+        opened_svg = render_airpods_3d_svg(
+            connected=True, approach_progress=1.0, open_progress=1.0, spin_angle=0.4
+        )
 
         self.assertIn(b"<svg", gray_svg)
-        self.assertNotEqual(gray_svg, closed_svg)
-        self.assertNotEqual(closed_svg, opened_svg)
+        self.assertNotEqual(gray_svg, far_closed_svg)
+        self.assertNotEqual(far_closed_svg, near_closed_svg)
+        self.assertNotEqual(near_closed_svg, opened_svg)
 
 
 class CommunicationRetryAndReconnectionTest(unittest.TestCase):

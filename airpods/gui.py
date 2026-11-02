@@ -55,17 +55,39 @@ def _ease_in_out_cubic(t):
     return 1.0 - ((-2.0 * t + 2.0) ** 3) / 2.0
 
 
-def render_airpods_3d_svg(connected=True, open_progress=1.0, spin_angle=0.0):
+def _ease_out_back(t, overshoot=1.08):
+    t = max(0.0, min(1.0, float(t)))
+    c1 = overshoot
+    c3 = c1 + 1.0
+    return 1.0 + c3 * ((t - 1.0) ** 3) + c1 * ((t - 1.0) ** 2)
+
+
+def render_airpods_3d_svg(
+    connected=True,
+    open_progress=1.0,
+    spin_angle=0.0,
+    approach_progress=1.0,
+):
     """Genera un SVG con iluminación y perspectiva 3D de unos AirPods 4 y su estuche.
 
     - connected=False: AirPods y estuche sombreados en gris mate (estado desconectado).
-    - connected=True: acabado blanco cerámico brillante tipo Apple, LED verde en el
-      estuche y animación 3D de apertura de la tapa (`open_progress` de 0.0 cerrado a 1.0 abierto)
-      con rotación suave en perspectiva (`spin_angle`).
+    - connected=True:
+      * `approach_progress` (0.0 -> 1.0): el estuche cerrado llega desde el fondo
+        (escala pequeña, elevado, girando y emergiendo hacia el primer plano).
+      * `open_progress` (0.0 -> 1.0): una vez delante, la tapa se abre en 3D y
+        los dos auriculares emergen con rotación suave (`spin_angle`).
     """
     p = _ease_in_out_cubic(open_progress if connected else 0.35)
-    yaw = math.sin(spin_angle) * (10.0 if connected else 4.0)
-    tilt_y = math.cos(spin_angle * 0.7) * (3.0 if connected else 1.5)
+    ap_raw = max(0.0, min(1.0, float(approach_progress if connected else 1.0)))
+    ap = _ease_out_cubic(ap_raw)
+    ap_scale = 0.22 + 0.78 * _ease_out_back(ap_raw, overshoot=0.95) if connected else 1.0
+    ap_offset_y = (1.0 - ap) * (-78.0) if connected else 0.0
+    ap_roll = (1.0 - ap) * (-16.0) if connected else 0.0
+
+    # Mientras viene desde lo lejos gira con más amplitud en perspectiva 3D
+    approach_yaw_boost = (1.0 - ap) * 26.0 if connected else 0.0
+    yaw = math.sin(spin_angle) * (10.0 if connected else 4.0) + approach_yaw_boost
+    tilt_y = math.cos(spin_angle * 0.7) * (3.0 if connected else 1.5) + (1.0 - ap) * 8.0
     side_shift = yaw * 1.15
     extrude_x = -yaw * 0.55
 
@@ -82,8 +104,8 @@ def render_airpods_3d_svg(connected=True, open_progress=1.0, spin_angle=0.0):
         mesh_fill = "#232730"
         led_color = "#32d74b"
         led_glow = "rgba(50, 215, 75, 0.55)"
-        ambient_glow = "rgba(137, 180, 250, 0.22)"
-        overall_opacity = "1.0"
+        ambient_glow = "rgba(137, 180, 250, 0.24)"
+        overall_opacity = f"{0.20 + 0.80 * ap:.2f}"
     else:
         # Sombreado en gris apagado cuando están desconectados
         shell_top = "#6e7380"
@@ -120,6 +142,9 @@ def render_airpods_3d_svg(connected=True, open_progress=1.0, spin_angle=0.0):
 
     cx = 170.0 + side_shift * 0.35
     base_y = 140.0 + tilt_y
+    shadow_rx = (86.0 + abs(yaw) * 0.5) * (0.28 + 0.72 * ap)
+    shadow_ry = 14.0 * (0.28 + 0.72 * ap)
+    shadow_opacity = 0.15 + 0.85 * ap
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="340" height="270" viewBox="0 0 340 270">
   <defs>
@@ -178,9 +203,12 @@ def render_airpods_3d_svg(connected=True, open_progress=1.0, spin_angle=0.0):
   </defs>
 
   <g opacity="{overall_opacity}">
-    <!-- Halo ambiental y sombra proyectada en suelo -->
-    <ellipse cx="170" cy="142" rx="135" ry="105" fill="url(#ambientGlow)"/>
-    <ellipse cx="{cx:.1f}" cy="242" rx="{86 + abs(yaw) * 0.5:.1f}" ry="14" fill="url(#floorShadow)"/>
+    <!-- Halo ambiental y sombra proyectada en suelo (crece al acercarse) -->
+    <ellipse cx="170" cy="142" rx="{135 * (0.4 + 0.6 * ap):.1f}" ry="{105 * (0.4 + 0.6 * ap):.1f}" fill="url(#ambientGlow)"/>
+    <ellipse cx="{cx:.1f}" cy="242" rx="{shadow_rx:.1f}" ry="{shadow_ry:.1f}" opacity="{shadow_opacity:.2f}" fill="url(#floorShadow)"/>
+
+    <!-- Grupo 3D con transformación de llegada desde lo lejos (escala + traslación Z/Y + alabeo) -->
+    <g transform="translate(170, {155 + ap_offset_y:.1f}) scale({ap_scale:.3f}) rotate({ap_roll:.2f}) translate(-170, -155)">
 
     <!-- Tapa abierta vista desde atrás (cuando p > 0) -->
     <g opacity="{inside_lid_opacity:.2f}" transform="translate({extrude_x * 0.4:.1f}, {lid_back_shift:.1f})">
@@ -254,6 +282,7 @@ def render_airpods_3d_svg(connected=True, open_progress=1.0, spin_angle=0.0):
             fill="url(#lidGrad)" stroke="{shell_edge}" stroke-width="1.1"/>
       <ellipse cx="{cx - 12:.1f}" cy="{base_y - lid_height + 14:.1f}" rx="52" ry="10"
                fill="url(#specHighlight)"/>
+    </g>
     </g>
   </g>
 </svg>"""
@@ -695,14 +724,21 @@ def run_app(socket_path=None):
         main_box.append(ear_group)
         stack.add_named(scroll, "controls")
 
-        # --- Animación 3D en tiempo real (cerrados -> se abren + rotación 3D) ---
+        # --- Animación 3D en tiempo real (llega desde lo lejos cerrado -> se abre + rotación 3D) ---
         def update_3d_frame():
             elapsed = time.monotonic() - ui_state["anim_start"]
-            # Primeros 0.25s cerrados, luego se abren suavemente durante 1.1s
-            open_t = max(0.0, min(1.0, (elapsed - 0.22) / 1.10))
+            # Fase 1 (0.0s .. 0.85s): el estuche cerrado llega desde lo lejos hacia el primer plano
+            approach_t = max(0.0, min(1.0, elapsed / 0.85))
+            # Fase 2 (0.75s .. 1.85s): al llegar delante se abre la tapa y emergen los auriculares
+            open_t = max(0.0, min(1.0, (elapsed - 0.75) / 1.10))
             spin = elapsed * 1.65
             tex = _svg_to_texture(
-                render_airpods_3d_svg(connected=True, open_progress=open_t, spin_angle=spin)
+                render_airpods_3d_svg(
+                    connected=True,
+                    open_progress=open_t,
+                    spin_angle=spin,
+                    approach_progress=approach_t,
+                )
             )
             anim_picture.set_paintable(tex)
             hero_picture.set_paintable(tex)
