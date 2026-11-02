@@ -12,6 +12,7 @@ import threading
 from gi.repository import GLib
 
 from .bluez import AirPodsWatcher
+from . import guided
 from .capture import CaptureWriter
 from .link import Link
 
@@ -68,20 +69,35 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="airpods-service")
     parser.add_argument("--capture", metavar="ARCHIVO",
                         help="vuelca los paquetes crudos (JSON Lines)")
+    parser.add_argument("--guided", metavar="DIRECTORIO",
+                        help="captura guiada: una situación tras otra, "
+                             "guarda un archivo por situación en DIRECTORIO")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    if args.guided:
+        import os
+        os.makedirs(args.guided, exist_ok=True)
+        args.capture = os.path.join(args.guided, "sesion.jsonl")
     capture = CaptureWriter(args.capture) if args.capture else None
     service = Service(capture)
     service.start()
-    if capture and sys.stdin.isatty():
+    loop = GLib.MainLoop()
+    if args.guided:
+        def guide():
+            guided.run(capture)
+            capture.close()
+            for path in guided.split(args.capture, args.guided):
+                print("Guardado", path)
+            GLib.idle_add(loop.quit)
+        threading.Thread(target=guide, daemon=True).start()
+    elif capture and sys.stdin.isatty():
         print("Captura activa. Escribe una etiqueta y pulsa Enter para marcarla.")
         GLib.io_add_watch(sys.stdin.fileno(), GLib.PRIORITY_DEFAULT, GLib.IO_IN,
                           lambda *_: _mark_from_stdin(capture))
-    loop = GLib.MainLoop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, sig, loop.quit)
     loop.run()
-    if capture:
+    if capture and not args.guided:
         capture.close()
     return 0
 

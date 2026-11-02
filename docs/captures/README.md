@@ -2,7 +2,15 @@
 
 Ejemplos que usarán las pruebas automáticas (ticket #2). Aquí se explica qué situación representa cada archivo y cómo se capturó.
 
-## Cómo capturar
+## Forma rápida (guiada)
+
+```
+python3 -m airpods --guided docs/captures
+```
+
+Te pide cada situación una tras otra (Enter para empezar, hacer la acción, Enter para terminar; `s` salta una). Al final deja un archivo por situación más `sesion.jsonl` con todo.
+
+## Cómo capturar a mano
 
 ```
 python3 -m airpods --capture docs/captures/<situacion>.jsonl
