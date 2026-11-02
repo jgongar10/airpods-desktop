@@ -7,6 +7,8 @@ SERVICE_NAME="airpods.service"
 SERVICE_PATH="$SYSTEMD_DIR/$SERVICE_NAME"
 BIN_DIR="$HOME/.local/bin"
 BIN_PATH="$BIN_DIR/airpods"
+APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+DESKTOP_PATH="$APPS_DIR/airpods.desktop"
 OMARCHY_PLUGINS_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins"
 PLUGIN_ID="airpods"
 PLUGIN_LINK="$OMARCHY_PLUGINS_DIR/$PLUGIN_ID"
@@ -34,13 +36,27 @@ uninstall() {
   fi
 
   rm -f "$BIN_PATH"
+  rm -f "$DESKTOP_PATH"
   echo "Desinstalación completada."
 }
 
 install_all() {
-  mkdir -p "$BIN_DIR" "$SYSTEMD_DIR" "$OMARCHY_PLUGINS_DIR"
+  mkdir -p "$BIN_DIR" "$SYSTEMD_DIR" "$OMARCHY_PLUGINS_DIR" "$APPS_DIR"
 
   ln -sfn "$REPO_DIR/bin/airpods" "$BIN_PATH"
+
+  cat > "$DESKTOP_PATH" <<EOF
+[Desktop Entry]
+Type=Application
+Name=AirPods
+Comment=Estado y configuración de tus AirPods
+Exec=$BIN_PATH app
+Icon=audio-headphones
+Terminal=false
+Categories=AudioVideo;Audio;Settings;HardwareSettings;
+Keywords=airpods;bluetooth;apple;auriculares;bateria;anc;
+StartupWMClass=org.gonzavz.AirPods
+EOF
 
   cat > "$SERVICE_PATH" <<EOF
 [Unit]

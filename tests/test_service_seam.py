@@ -551,6 +551,62 @@ class EarDetectionAndAutoPauseTest(unittest.TestCase):
             self.assertEqual(restarted.get_state()["ear_detection"], False)
 
 
+class DesktopAppClientTest(unittest.TestCase):
+    def test_app_controller_receives_live_state_and_sends_commands(self):
+        from airpods.gui import AppController
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sock_path = os.path.join(tmp, "airpods.sock")
+            fake = FakeAirPods()
+            core = Core(
+                link_factory=fake.make_link,
+                config_path=os.path.join(tmp, "config.json"),
+            )
+            fake.bind(core.on_connected, core.on_disconnected)
+            server = ControlServer(core, sock_path)
+            server.start()
+            self.addCleanup(server.close)
+            self.addCleanup(core.close)
+
+            states = []
+            cond = threading.Condition()
+
+            def on_state(st):
+                with cond:
+                    states.append(st)
+                    cond.notify_all()
+
+            ctrl = AppController(socket_path=sock_path, on_state=on_state, dispatch=lambda fn: fn())
+            ctrl.start()
+            self.addCleanup(ctrl.stop)
+
+            with cond:
+                self.assertTrue(cond.wait_for(lambda: len(states) >= 1, timeout=2.0))
+            self.assertEqual(states[-1]["connected"], False)
+
+            fake.connect()
+            fake.replay("bateria-estuche-cerrado")
+            with cond:
+                self.assertTrue(
+                    cond.wait_for(
+                        lambda: states[-1]["connected"] is True
+                        and states[-1]["battery"]["left"]["level"] == 100,
+                        timeout=2.0,
+                    )
+                )
+
+            ok, err = ctrl.set_noise_mode("cancelacion")
+            self.assertTrue(ok, err)
+            self.assertEqual(fake.link.sent[-1], bytes.fromhex("0400040009000d02000000"))
+
+            ok, err = ctrl.set_ear_detection(False)
+            self.assertTrue(ok, err)
+            with cond:
+                self.assertTrue(
+                    cond.wait_for(lambda: states[-1]["ear_detection"] is False, timeout=2.0)
+                )
+
+
 class CommunicationRetryAndReconnectionTest(unittest.TestCase):
     def test_channel_failure_emits_communicating_false_and_recovers_on_retry(self):
         with tempfile.TemporaryDirectory() as tmp:

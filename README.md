@@ -4,7 +4,8 @@ App de escritorio para Linux (BlueZ) e integrada de forma nativa en la barra de 
 
 ## Qué hace
 
-- **Batería en vivo**: muestra en el **Widget** de la barra el porcentaje del auricular con menos carga conocida y, al hacer clic, despliega el **Panel** con la batería del **Auricular** izquierdo, el derecho y el **Estuche** por separado (con indicador de carga y estado `Desconocida` cuando la pieza no reporta nivel).
+- **Aplicación de escritorio nativa (GTK4 + Libadwaita)**: ventana independiente (`airpods` / `airpods app`, o buscándola como **AirPods** en el lanzador de aplicaciones) con la batería por pieza, selector de modo de ruido e interruptor de detección de oído en tiempo real.
+- **Batería en vivo**: muestra en el **Widget** de la barra el porcentaje del auricular con menos carga conocida y, al hacer clic, despliega el **Panel** (o en la app de escritorio) con la batería del **Auricular** izquierdo, el derecho y el **Estuche** por separado (con indicador de carga y estado `Desconocida` cuando la pieza no reporta nivel).
 - **Modo de ruido**: permite ver y cambiar entre **Cancelación de ruido** (`cancelacion`), **Transparencia** (`transparencia`), **Adaptativo** (`adaptativo`) y **Desactivado** (`desactivado`) tanto desde el Panel como desde la terminal, y refleja los cambios hechos pulsando el tallo de los AirPods.
 - **Detección de oído y Pausa automática**: pausa todos los reproductores MPRIS que estén sonando al quitarte un auricular y reanuda únicamente esos al volver a ponértelo (sin reanudar pausas manuales ni cuando te quitas ambos auriculares). La preferencia se puede activar o desactivar y se recuerda entre reinicios.
 - **Reconexión y reintentos automáticos**: detecta los AirPods automáticamente por el fabricante Apple (`0x004C`) en cuanto el sistema los conecta, sin configurar su dirección MAC, y reintenta el canal AAP si se pierde la comunicación.
@@ -25,8 +26,9 @@ Instalación en un solo paso en el usuario actual (sin `sudo` / root):
 
 Esto:
 1. Enlaza la herramienta `airpods` en `~/.local/bin/airpods`.
-2. Crea, habilita y arranca el servicio `~/.config/systemd/user/airpods.service`.
-3. Enlaza y habilita el plugin `airpods` en `~/.config/omarchy/plugins/airpods` y lo coloca junto al icono de Bluetooth en la barra de Omarchy.
+2. Instala el lanzador de escritorio `~/.local/share/applications/airpods.desktop` (para abrir la app **AirPods** desde el menú de aplicaciones).
+3. Crea, habilita y arranca el servicio `~/.config/systemd/user/airpods.service`.
+4. Enlaza y habilita el plugin `airpods` en `~/.config/omarchy/plugins/airpods` y lo coloca junto al icono de Bluetooth en la barra de Omarchy.
 
 Para desinstalar y dejar el sistema como estaba:
 
@@ -37,6 +39,10 @@ Para desinstalar y dejar el sistema como estaba:
 ## Uso desde la terminal (`airpods`)
 
 ```bash
+# Abrir la aplicación gráfica de escritorio (ventana GTK4 / Libadwaita)
+airpods
+# (o bien: airpods app)
+
 # Ver el estado actual y cada cambio en vivo como líneas JSON
 airpods watch
 
@@ -76,7 +82,8 @@ airpods ear-detection off
 - `airpods/mpris.py` — Control y escucha de reproductores multimedia MPRIS por D-Bus.
 - `airpods/core.py` — Núcleo del servicio: estado, reglas de Pausa automática, persistencia de configuración y reintentos de comunicación.
 - `airpods/server.py` — Servidor de control local por socket Unix (`$XDG_RUNTIME_DIR/airpods.sock`).
-- `airpods/cli.py` y `bin/airpods` — Herramienta de línea de comandos `airpods`.
+- `airpods/gui.py` — Aplicación gráfica de escritorio en GTK4 + Libadwaita.
+- `airpods/cli.py` y `bin/airpods` — Herramienta de línea de comandos `airpods` y lanzador de la app.
 - `plugin/airpods/` — Plugin de barra y Panel en QML para `omarchy-shell`.
 - `docs/captures/` — Capturas reales etiquetadas de los AirPods 4 usadas en las pruebas automáticas.
 

@@ -109,17 +109,29 @@ def set_ear_detection(value, socket_path=None, err=sys.stderr):
 
 
 def main(argv=None, socket_path=None, out=None, err=sys.stderr, stop_event=None):
+    args_list = list(sys.argv[1:] if argv is None else argv)
+    if not args_list:
+        from .gui import run_app
+
+        return run_app(socket_path=socket_path)
+
     parser = argparse.ArgumentParser(prog="airpods")
     sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("app", help="abre la aplicación de escritorio")
+    sub.add_parser("gui", help="abre la aplicación de escritorio")
     sub.add_parser("watch", help="muestra el estado como líneas JSON")
     mode_parser = sub.add_parser("mode", help="cambia el modo de ruido")
     mode_parser.add_argument("value", help="cancelacion | transparencia | adaptativo | desactivado")
     ear_parser = sub.add_parser("ear-detection", help="activa o desactiva la detección de oído")
     ear_parser.add_argument("value", help="on | off")
     try:
-        args = parser.parse_args(argv)
+        args = parser.parse_args(args_list)
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 1
+    if args.command in ("app", "gui"):
+        from .gui import run_app
+
+        return run_app(socket_path=socket_path)
     if args.command == "watch":
         return watch(socket_path=socket_path, out=out, err=err, stop_event=stop_event)
     if args.command == "mode":
