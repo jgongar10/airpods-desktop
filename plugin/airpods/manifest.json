@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "airpods",
+  "name": "AirPods",
+  "version": "1.0.0",
+  "author": "gonzavz",
+  "description": "Estado y configuración de los AirPods en la barra de Omarchy",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "AirPods",
+    "description": "Batería, modo de ruido y detección de oído de los AirPods",
+    "category": "Audio",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

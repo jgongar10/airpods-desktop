@@ -66,8 +66,8 @@ class ControlServer:
         send_lock = threading.Lock()
         closed = threading.Event()
 
-        def send_state(state):
-            line = (json.dumps(state) + "\n").encode("utf-8")
+        def send_json(obj):
+            line = (json.dumps(obj) + "\n").encode("utf-8")
             with send_lock:
                 try:
                     conn.sendall(line)
@@ -80,8 +80,9 @@ class ControlServer:
             if not line:
                 return
             req = json.loads(line)
-            if req.get("cmd") == "watch":
-                self._core.subscribe(send_state)
+            cmd = req.get("cmd")
+            if cmd == "watch":
+                self._core.subscribe(send_json)
                 try:
                     while not closed.is_set():
                         if not conn.recv(1):
@@ -89,7 +90,13 @@ class ControlServer:
                 except OSError:
                     pass
                 finally:
-                    self._core.unsubscribe(send_state)
+                    self._core.unsubscribe(send_json)
+            elif cmd == "mode":
+                ok, err = self._core.set_noise_mode(req.get("mode"))
+                send_json({"ok": ok, "error": err})
+            elif cmd == "ear-detection":
+                ok, err = self._core.set_ear_detection(req.get("enabled"))
+                send_json({"ok": ok, "error": err})
         except (OSError, ValueError):
             pass
         finally:

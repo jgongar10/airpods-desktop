@@ -18,6 +18,9 @@ REQUEST_NOTIFICATIONS = bytes.fromhex("040004000f00ffffffff")
 POST_HANDSHAKE_PACKETS = (SET_SPECIFIC_FEATURES, REQUEST_NOTIFICATIONS)
 
 _BATTERY_PREFIX = bytes.fromhex("040004000400")
+_EAR_DETECTION_PREFIX = bytes.fromhex("040004000600")
+_PRIMARY_POD_PREFIX = bytes.fromhex("040004000800")
+_NOISE_MODE_PREFIX = bytes.fromhex("0400040009000d")
 
 _BATTERY_COMPONENTS = {
     0x02: "right",
@@ -27,6 +30,22 @@ _BATTERY_COMPONENTS = {
 
 _STATUS_CHARGING = 0x01
 _STATUS_DISCONNECTED = 0x04
+
+NOISE_MODES = ("cancelacion", "transparencia", "adaptativo", "desactivado")
+
+_CODE_TO_NOISE_MODE = {
+    0x01: "desactivado",
+    0x02: "cancelacion",
+    0x03: "transparencia",
+    0x04: "adaptativo",
+}
+
+_NOISE_MODE_TO_CODE = {v: k for k, v in _CODE_TO_NOISE_MODE.items()}
+
+_PRIMARY_POD_ROLES = {
+    0x01: "left",
+    0x02: "right",
+}
 
 
 def parse_battery(packet):
@@ -53,3 +72,39 @@ def parse_battery(packet):
                 "charging": status == _STATUS_CHARGING,
             }
     return result or None
+
+
+def parse_noise_mode(packet):
+    """Extrae el modo de ruido de un paquete AAP, o devuelve None si no aplica."""
+    raw = bytes(packet)
+    if not raw.startswith(_NOISE_MODE_PREFIX) or len(raw) < 8:
+        return None
+    return _CODE_TO_NOISE_MODE.get(raw[7])
+
+
+def encode_noise_mode(mode):
+    """Codifica la orden AAP para cambiar al modo de ruido indicado."""
+    code = _NOISE_MODE_TO_CODE.get(mode)
+    if code is None:
+        raise ValueError(f"Modo de ruido no válido: {mode}")
+    return _NOISE_MODE_PREFIX + bytes([code, 0x00, 0x00, 0x00])
+
+
+def parse_primary_pod(packet):
+    """Extrae qué auricular es el primario ('left' o 'right') de un paquete 0x08."""
+    raw = bytes(packet)
+    if not raw.startswith(_PRIMARY_POD_PREFIX) or len(raw) < 7:
+        return None
+    return _PRIMARY_POD_ROLES.get(raw[6])
+
+
+def parse_ear_detection(packet, primary_pod="left"):
+    """Extrae {'left': bool, 'right': bool} de un paquete 0x06 según el auricular primario."""
+    raw = bytes(packet)
+    if not raw.startswith(_EAR_DETECTION_PREFIX) or len(raw) < 8:
+        return None
+    primary_in_ear = raw[6] == 0x00
+    secondary_in_ear = raw[7] == 0x00
+    if primary_pod == "right":
+        return {"left": secondary_in_ear, "right": primary_in_ear}
+    return {"left": primary_in_ear, "right": secondary_in_ear}

@@ -1,5 +1,6 @@
 """Servicio en segundo plano: detecta AirPods, abre el enlace AAP, mantiene el
-estado en el núcleo y expone el control local por socket Unix."""
+estado en el núcleo, aplica la Pausa automática sobre MPRIS y expone el control
+local por socket Unix."""
 
 import argparse
 import logging
@@ -16,24 +17,35 @@ from .bluez import AirPodsWatcher
 from .capture import CaptureWriter
 from .core import Core
 from .link import Link
+from .mpris import MprisPlayers
 from .server import ControlServer
 
 log = logging.getLogger("airpods")
 
 
 class Service:
-    def __init__(self, capture=None, socket_path=None):
+    def __init__(self, capture=None, socket_path=None, config_path=None):
         self._capture = capture
-        self.core = Core(link_factory=self._make_link)
+        self._players = MprisPlayers(on_changed=self._player_state_changed)
+        self.core = Core(
+            link_factory=self._make_link,
+            players=self._players,
+            config_path=config_path,
+        )
         self.server = ControlServer(self.core, socket_path=socket_path)
         self._watcher = AirPodsWatcher(self._connected, self._disconnected)
 
     def start(self):
         self.server.start()
+        self._players.start()
         self._watcher.start()
 
     def close(self):
+        self.core.close()
         self.server.close()
+
+    def _player_state_changed(self, player_id, status):
+        self.core.on_player_state_changed(player_id, status)
 
     def _connected(self, address):
         log.info("AirPods conectados: %s", address)
